@@ -1547,7 +1547,7 @@ const tableNames = {
   '1': 'Mont-Blanc', '2': 'Tignes', '3': "Val d'Isère", '4': 'Courchevel',
   '5': 'Méribel', '6': 'Les Arcs', '7': 'Chamonix', '8': 'Megève',
   '9': 'La Plagne', '10': 'Les Menuires', '11': 'Val Thorens', '12': 'Avoriaz',
-  '13': 'Morzine', '14': 'Flaine', '15': 'Sainte-Foy', '16': 'Les Gets',
+  '13': 'Morzine', '14': 'Flaine', '15': 'Châtel', '16': 'Les Gets',
 };
 
 function getTableDisplayName(tableStr) {
@@ -2008,8 +2008,7 @@ function updateMap() {
   if (!g) return;
 
   document.getElementById('bannerName').textContent = g.name;
-  document.getElementById('bannerDetail').textContent = `Réservé par ${g.reservedBy} · Groupe de ${g.group} · Contact : ${g.contact}`;
-
+  document.getElementById('bannerDetail').textContent = `Réservé par ${g.reservedBy} · Groupe de ${g.group}`;
   if (g.table) {
     document.getElementById('bannerTable').textContent = g.table;
     banner.classList.add('visible');
@@ -2074,7 +2073,7 @@ function render() {
               </span>
               <span class="meta-item">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                ×${g.group} · ${g.contact}
+                ×${g.group}
               </span>
             </div>
           </div>
