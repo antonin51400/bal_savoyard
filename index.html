@@ -1101,6 +1101,87 @@
     }
   }
 
+
+  /* Payment status */
+  .paid-toggle {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid var(--cream);
+    background: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: var(--transition);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    z-index: 1;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .paid-toggle:hover {
+    border-color: var(--gold);
+    background: #fff8e7;
+    transform: scale(1.1);
+  }
+
+  .paid-toggle.is-paid {
+    background: linear-gradient(135deg, var(--gold), var(--gold-light));
+    border-color: var(--gold);
+    color: white;
+    box-shadow: 0 2px 8px rgba(201, 168, 76, 0.3);
+  }
+
+  .paid-badge {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-weight: 700;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .paid-badge.yes {
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    color: #92400e;
+  }
+
+  .paid-badge.no {
+    background: #fef2f2;
+    color: #dc2626;
+  }
+
+  body.view-only .arrive-toggle,
+  body.view-only .paid-toggle {
+    display: none !important;
+  }
+
+  body.view-only .guest-card {
+    cursor: default;
+  }
+
+  .popup-paid-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 700;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .popup-paid-badge.yes {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .popup-paid-badge.no {
+    background: #fef2f2;
+    color: #dc2626;
+  }
+
   /* Code entry modal */
   .code-modal {
     position: fixed;
@@ -1287,6 +1368,7 @@
       <div class="stat"><div class="stat-number" id="statTotal">0</div><div class="stat-label">Invités</div></div>
       <div class="stat"><div class="stat-number" id="statArrived">0</div><div class="stat-label">Arrivés</div></div>
       <div class="stat"><div class="stat-number" id="statRemaining">0</div><div class="stat-label">Restants</div></div>
+      <div class="stat"><div class="stat-number" id="statPaid">0</div><div class="stat-label">Payés</div></div>
     </div>
   </div>
 </header>
@@ -1306,6 +1388,8 @@
       <button class="filter-btn active" data-filter="all">Tous</button>
       <button class="filter-btn" data-filter="pending">En attente</button>
       <button class="filter-btn" data-filter="arrived">Arrivés</button>
+      <button class="filter-btn" data-filter="paid">Payés</button>
+      <button class="filter-btn" data-filter="unpaid">Non payés</button>
     </div>
     <div class="guest-list" id="guestList"></div>
   </div>
@@ -1644,6 +1728,9 @@ try {
 }
 
 const arrivedRef = db ? db.ref('arrived') : null;
+const paidRef = db ? db.ref('paid') : null;
+const paid = {};
+const paidTimes = {};
 
 // Sync from Firebase in real time (or fallback to local)
 if (arrivedRef) {
@@ -1667,7 +1754,24 @@ if (arrivedRef) {
     }
     render();
   });
-} else {
+}
+
+// Sync paid status from Firebase
+if (paidRef) {
+  paidRef.on('value', (snapshot) => {
+    const data = snapshot.val() || {};
+    Object.keys(paid).forEach(k => delete paid[k]);
+    Object.keys(paidTimes).forEach(k => delete paidTimes[k]);
+    Object.entries(data).forEach(([id, val]) => {
+      paid[id] = true;
+      paidTimes[id] = val.time || '';
+    });
+    updateStats();
+    render();
+  });
+}
+
+if (!arrivedRef) {
   // Fallback sans Firebase
   updateStats();
   updateTableProgressBars();
@@ -1675,7 +1779,9 @@ if (arrivedRef) {
 }
 
 // Access code validation
-const ACCESS_CODE = '6930';
+const VIEW_CODE = '2026';
+const ADMIN_CODE = '5678';
+let isViewOnly = false;
 
 function validateAccessCode() {
   const d1 = document.getElementById('digit1').value;
@@ -1690,8 +1796,20 @@ function validateAccessCode() {
     return;
   }
 
-  if (entered === ACCESS_CODE) {
+  if (entered === ADMIN_CODE) {
+    isViewOnly = false;
     document.getElementById('codeModal').classList.add('hidden');
+  } else if (entered === VIEW_CODE) {
+    isViewOnly = true;
+    document.body.classList.add('view-only');
+    document.getElementById('codeModal').classList.add('hidden');
+    document.getElementById('laneModal').style.display = 'none';
+    document.getElementById('appWrapper').style.display = 'flex';
+    const badge = document.getElementById('laneBadge');
+    badge.textContent = '\u{1F441} Consultation';
+    badge.className = 'lane-badge';
+    badge.style.cssText = 'background:rgba(255,255,255,0.15);color:#e8c96a;border:1px solid rgba(201,168,76,0.3);cursor:default;padding:8px 16px;border-radius:999px;font-size:13px;font-weight:700;';
+    badge.onclick = null;
   } else {
     const err = document.getElementById('codeError');
     err.textContent = 'Code incorrect, reessayez.';
@@ -1802,6 +1920,7 @@ function openTablePopup(blockId) {
       return `<div class="popup-guest-row${isArrived ? ' arrived-row' : ''}">
         <div class="popup-dot ${isArrived ? 'green' : 'grey'}"></div>
         <div class="popup-guest-name">${g.name}</div>
+        <div class="popup-paid-badge ${!!paid[g.id] ? 'yes' : 'no'}">${!!paid[g.id] ? 'Paye' : 'Non paye'}</div>
         <div class="popup-arrived-time">${isArrived ? '✓ Arrivé' + time + lane : 'En attente'}</div>
       </div>`;
     }).join('');
@@ -2107,6 +2226,7 @@ function selectGuest(id) {
 
 function toggleArrived(e, id) {
   e.stopPropagation();
+  if (isViewOnly) return;
   const now = new Date();
   const time = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
   const lane = currentLane === 'left' ? 'File Gauche' : 'File Droite';
@@ -2127,6 +2247,30 @@ function toggleArrived(e, id) {
       arrivedTimes[id] = time;
       arrivedLanes[id] = lane;
       updateStats(); updateTableProgressBars(); render();
+    }
+  }
+}
+
+function togglePaid(e, id) {
+  e.stopPropagation();
+  if (isViewOnly) return;
+  const now = new Date();
+  const time = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+  if (paid[id]) {
+    if (db) {
+      db.ref('paid/' + id).remove();
+    } else {
+      delete paid[id];
+      delete paidTimes[id];
+      updateStats(); render();
+    }
+  } else {
+    if (db) {
+      db.ref('paid/' + id).set({ time });
+    } else {
+      paid[id] = true;
+      paidTimes[id] = time;
+      updateStats(); render();
     }
   }
 }
@@ -2188,9 +2332,11 @@ function clearSelection() {
 
 function updateStats() {
   const count = Object.keys(arrived).length;
+  const paidCount = Object.keys(paid).length;
   document.getElementById('statTotal').textContent = guests.length;
   document.getElementById('statArrived').textContent = count;
   document.getElementById('statRemaining').textContent = guests.length - count;
+  document.getElementById('statPaid').textContent = paidCount;
   document.getElementById('progressFill').style.width = (count / guests.length * 100) + '%';
 }
 
@@ -2241,6 +2387,8 @@ function render() {
   let filtered = guests.filter(g => {
     if (filter === 'arrived' && !arrived[g.id]) return false;
     if (filter === 'pending' && arrived[g.id]) return false;
+    if (filter === 'paid' && !paid[g.id]) return false;
+    if (filter === 'unpaid' && paid[g.id]) return false;
     if (!query) return true;
     return normalize(g.name).includes(query) || normalize(g.reservedBy).includes(query) || normalize(g.table).includes(query);
   });
@@ -2267,6 +2415,7 @@ function render() {
           <div class="arrive-toggle" onclick="toggleArrived(event,${g.id})">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
           </div>
+          <div class="paid-toggle${paid[g.id] ? ' is-paid' : ''}" onclick="togglePaid(event,${g.id})" title="${paid[g.id] ? 'Paye' : 'Non paye'}">€</div>
           <div class="guest-info">
             <div class="guest-name">${g.name}</div>
             <div class="guest-meta">
@@ -2282,6 +2431,7 @@ function render() {
           </div>
           ${g.table ? `<div class="table-badge">${getTableDisplayName(g.table)}</div>` : '<div class="table-badge no-table">À définir</div>'}
           ${isArrived && arrivedTimes[g.id] ? `<div class="time-badge">✓ ${arrivedTimes[g.id]}${arrivedLanes[g.id] ? ' · ' + arrivedLanes[g.id] : ''}</div>` : ''}
+          ${paid[g.id] ? '<div class="paid-badge yes">Paye</div>' : '<div class="paid-badge no">Non paye</div>'}
         </div>`;
     });
   });
