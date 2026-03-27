@@ -1734,26 +1734,46 @@ function selectGuest(id) {
 function toggleArrived(e, id) {
   e.stopPropagation();
   if (isViewOnly) return;
+
   const now = new Date();
   const time = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
   const lane = currentLane === 'left' ? 'File Gauche' : 'File Droite';
+
   if (arrived[id]) {
+    // On retire seulement l'arrivée
     if (db) {
       db.ref('arrived/' + id).remove();
     } else {
       delete arrived[id];
       delete arrivedTimes[id];
       delete arrivedLanes[id];
-      updateStats(); updateTableProgressBars(); render();
+      updateStats();
+      updateTableProgressBars();
+      render();
     }
   } else {
+    // On coche arrivé
     if (db) {
       db.ref('arrived/' + id).set({ time, lane });
+
+      // Si pas encore payé, on coche aussi payé automatiquement
+      if (!paid[id]) {
+        db.ref('paid/' + id).set({ time });
+      }
     } else {
       arrived[id] = true;
       arrivedTimes[id] = time;
       arrivedLanes[id] = lane;
-      updateStats(); updateTableProgressBars(); render();
+
+      // Paiement auto si arrivée
+      if (!paid[id]) {
+        paid[id] = true;
+        paidTimes[id] = time;
+      }
+
+      updateStats();
+      updateTableProgressBars();
+      render();
     }
   }
 }
